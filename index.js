@@ -54,37 +54,51 @@
   // ============================================================
   // ПЛАВНОСТЬ: настройка инерции для мыши, тача и зума
   // ============================================================
-  // friction — «трение». Чем ниже, тем дольше скольжение после свайпа.
-  //   По умолчанию в Marzipano: 6  (резкая остановка)
-  //   Рекомендации:
-  //     1   — очень длинное скольжение (может быть сложно контролировать)
-  //     2   — плавно, как в Google Street View
-  //     3   — баланс плавности и контроля
-  //     4-5 — лёгкое улучшение по сравнению с дефолтом
-  // ============================================================
-  var DRAG_FRICTION  = 2;   // для вращения мышью и свайпом
-  var ZOOM_FRICTION  = 3;   // для скролла и пинча
+  var DRAG_FRICTION = 2;
+  var ZOOM_FRICTION = 3;
 
-  (function setupSmoothControls() {
-    var controls = viewer.controls();
-    if (!controls._methods) return;
+  // Откладываем патч, чтобы все контролы (включая touch) были
+  // зарегистрированы. Оборачиваем в try-catch, чтобы при любой
+  // ошибке тур продолжал работать нормально.
+  setTimeout(function() {
+    try {
+      var ctls = viewer.controls();
+      var methods = ctls._methods || [];
 
-    controls._methods.forEach(function(m) {
-      var inst = m.instance;
-      if (!inst || !inst._dynamics) return;
-
-      // DragControlMethod (мышь + тач) — у них _dynamics.x и _dynamics.y
-      if (inst._dynamics.x && inst._dynamics.y) {
-        inst._dynamics.x._friction = DRAG_FRICTION;
-        inst._dynamics.y._friction = DRAG_FRICTION;
+      // Гарантируем, что methods итерируем
+      if (typeof methods.forEach !== 'function') {
+        if (typeof methods.length === 'number') {
+          methods = Array.prototype.slice.call(methods);
+        } else {
+          methods = [];
+        }
       }
 
-      // ScrollZoomControlMethod / PinchZoomControlMethod — один объект Dynamics
-      if (typeof inst._dynamics._friction !== 'undefined') {
-        inst._dynamics._friction = ZOOM_FRICTION;
-      }
-    });
-  })();
+      methods.forEach(function(m) {
+        try {
+          var inst = m.instance || m;
+          if (!inst || !inst._dynamics) return;
+
+          var dyn = inst._dynamics;
+
+          // DragControlMethod / TouchControlMethod — dynamics.x и dynamics.y
+          if (dyn.x && dyn.y) {
+            dyn.x._friction = DRAG_FRICTION;
+            dyn.y._friction = DRAG_FRICTION;
+          }
+
+          // ScrollZoomControlMethod / PinchZoomControlMethod — один Dynamics
+          if (typeof dyn._friction !== 'undefined') {
+            dyn._friction = ZOOM_FRICTION;
+          }
+        } catch (e) {
+          // Пропускаем метод, если структура отличается
+        }
+      });
+    } catch (e) {
+      // Плавность не применилась — тур работает со стандартным трением
+    }
+  }, 200);
   // ============================================================
 
   var scenes = data.scenes.map(function(data) {
