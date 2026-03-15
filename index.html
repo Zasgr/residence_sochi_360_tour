@@ -77,56 +77,56 @@
     // ============================================================
     var SCENE_GROUPS = [
       {
-        title: '🌍 Территория',
+        title: 'Территория',
         match: function(name) {
           return /^(Главный вид|Дрон|Въездные ворота)/i.test(name);
         },
         short: function(name) { return name; }
       },
       {
-        title: '🏡 Нижний участок',
+        title: 'Нижний участок',
         match: function(name) {
           return /^Нижний участок/i.test(name);
         },
         short: function(name) { return name.replace(/^Нижний участок\s*/i, '') || name; }
       },
       {
-        title: '🏡 Верхний участок',
+        title: 'Верхний участок',
         match: function(name) {
           return /^Верхний участок/i.test(name);
         },
         short: function(name) { return name.replace(/^Верхний участок\s*/i, '') || name; }
       },
       {
-        title: '🪜 Лестница',
+        title: 'Лестница',
         match: function(name) {
           return /^Лестница/i.test(name);
         },
         short: function(name) { return name; }
       },
       {
-        title: '1️⃣ 1 этаж',
+        title: '1 этаж',
         match: function(name) {
           return /^1 этаж/i.test(name);
         },
         short: function(name) { return name.replace(/^1 этаж\s*—?\s*/i, '') || name; }
       },
       {
-        title: '2️⃣ 2 этаж',
+        title: '2 этаж',
         match: function(name) {
           return /^2 этаж/i.test(name);
         },
         short: function(name) { return name.replace(/^2 этаж\s*—?\s*/i, '') || name; }
       },
       {
-        title: '3️⃣ 3 этаж',
+        title: '3 этаж',
         match: function(name) {
           return /^3 этаж/i.test(name);
         },
         short: function(name) { return name.replace(/^3 этаж\s*—?\s*/i, '') || name; }
       },
       {
-        title: '🏋️ Хозблок',
+        title: 'Хозблок',
         match: function(name) {
           return /^Хозблок/i.test(name);
         },
@@ -139,7 +139,7 @@
     var groupOrder = [];
 
     APP_DATA.scenes.forEach(function(scene) {
-      var groupTitle = '📍 Прочее';
+      var groupTitle = 'Прочее';
       var shortName = scene.name;
 
       for (var g = 0; g < SCENE_GROUPS.length; g++) {
