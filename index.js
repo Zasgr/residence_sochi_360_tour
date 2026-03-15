@@ -44,13 +44,9 @@
     document.body.classList.add('tooltip-fallback');
   }
 
-  // preserveDrawingBuffer нужен для скриншота canvas
   var viewerOpts = {
     controls: {
       mouseViewMode: data.settings.mouseViewMode
-    },
-    stage: {
-      preserveDrawingBuffer: true
     }
   };
 
@@ -92,11 +88,46 @@
 
   // ============================================================
   // ПРИНУДИТЕЛЬНАЯ ЗАГРУЗКА ВСЕХ ТАЙЛОВ
-  // Программно прокручиваем камеру через все 6 граней куба.
-  // Marzipano вынужден подгрузить тайлы и создать WebGL текстуры.
-  // Пользователь ничего не видит — поверх canvas лежит оверлей.
+  // Тёмный оверлей с плавным появлением и исчезновением
   // ============================================================
-  var forceLoadId = 0; // уникальный ID текущей операции
+  var forceLoadId = 0;
+  var FADE_IN_MS = 300;
+  var FADE_OUT_MS = 500;
+
+  function createOverlay() {
+    var overlay = document.createElement('div');
+    overlay.style.cssText =
+      'position:absolute;top:0;left:0;width:100%;height:100%;' +
+      'z-index:999;pointer-events:none;background-color:#000;' +
+      'opacity:0;transition:opacity ' + FADE_IN_MS + 'ms ease-in;';
+    panoElement.appendChild(overlay);
+    // Запускаем fade-in на следующем кадре (чтобы transition сработал)
+    requestAnimationFrame(function() {
+      overlay.style.opacity = '1';
+    });
+    return overlay;
+  }
+
+  function fadeOutOverlay(overlay, callback) {
+    if (!overlay || !overlay.parentNode) {
+      if (callback) callback();
+      return;
+    }
+    overlay.style.transition = 'opacity ' + FADE_OUT_MS + 'ms ease-out';
+    overlay.style.opacity = '0';
+    setTimeout(function() {
+      if (overlay.parentNode) {
+        overlay.parentNode.removeChild(overlay);
+      }
+      if (callback) callback();
+    }, FADE_OUT_MS);
+  }
+
+  function removeOverlay(overlay) {
+    if (overlay && overlay.parentNode) {
+      overlay.parentNode.removeChild(overlay);
+    }
+  }
 
   function forceLoadAllTiles(sceneObj, onComplete) {
     var myId = ++forceLoadId;
@@ -115,7 +146,6 @@
         positions.push({ yaw: yaws[y], pitch: pitches[p], fov: fov });
       }
     }
-    // Добавляем точки зенита и надира с разными yaw для надёжности
     positions.push({ yaw: 0, pitch: -1.5, fov: fov });
     positions.push({ yaw: Math.PI, pitch: -1.5, fov: fov });
     positions.push({ yaw: 0, pitch: 1.5, fov: fov });
@@ -123,82 +153,56 @@
     positions.push({ yaw: Math.PI / 4, pitch: -1.3, fov: fov });
     positions.push({ yaw: -Math.PI / 4, pitch: 1.3, fov: fov });
 
-    // Создаём оверлей
-    var overlay = document.createElement('div');
-    overlay.style.cssText =
-      'position:absolute;top:0;left:0;width:100%;height:100%;' +
-      'z-index:999;pointer-events:none;background-color:#000;';
-    panoElement.appendChild(overlay);
+    // Создаём тёмный оверлей с плавным появлением
+    var overlay = createOverlay();
 
-    // Делаем скриншот начального кадра через 2 кадра рендера
-    requestAnimationFrame(function() {
-      requestAnimationFrame(function() {
+    // Ждём завершения fade-in перед сканированием
+    setTimeout(function() {
+      if (myId !== forceLoadId) { removeOverlay(overlay); return; }
+
+      var idx = 0;
+      var framesPerPosition = 2;
+      var frameCount = 0;
+
+      function tick() {
         if (myId !== forceLoadId) { removeOverlay(overlay); return; }
 
-        try {
-          var cvs = panoElement.querySelector('canvas');
-          if (cvs) {
-            var dataUrl = cvs.toDataURL('image/jpeg', 0.6);
-            if (dataUrl && dataUrl.length > 500) {
-              overlay.style.backgroundImage = 'url(' + dataUrl + ')';
-              overlay.style.backgroundSize = 'cover';
-              overlay.style.backgroundPosition = 'center';
-              overlay.style.backgroundColor = 'transparent';
-            }
+        if (idx < positions.length) {
+          if (frameCount === 0) {
+            view.setParameters(positions[idx]);
           }
-        } catch (e) {}
+          frameCount++;
+          if (frameCount >= framesPerPosition) {
+            frameCount = 0;
+            idx++;
+          }
+          requestAnimationFrame(tick);
+        } else {
+          // Возвращаем исходный ракурс
+          view.setParameters(initParams);
 
-        // Начинаем сканирование
-        var idx = 0;
-        // На каждую позицию даём 2 кадра чтобы Marzipano успел
-        // запросить тайлы и начать рендер
-        var framesPerPosition = 2;
-        var frameCount = 0;
-
-        function tick() {
-          if (myId !== forceLoadId) { removeOverlay(overlay); return; }
-
-          if (idx < positions.length) {
-            if (frameCount === 0) {
-              view.setParameters(positions[idx]);
-            }
-            frameCount++;
-            if (frameCount >= framesPerPosition) {
-              frameCount = 0;
-              idx++;
-            }
-            requestAnimationFrame(tick);
-          } else {
-            // Возвращаем исходный ракурс
-            view.setParameters(initParams);
-            // Ждём 3 кадра для финального рендера
+          // Ждём 3 кадра для финального рендера, потом плавно убираем оверлей
+          requestAnimationFrame(function() {
             requestAnimationFrame(function() {
               requestAnimationFrame(function() {
-                requestAnimationFrame(function() {
-                  if (myId !== forceLoadId) { removeOverlay(overlay); return; }
-                  removeOverlay(overlay);
+                if (myId !== forceLoadId) { removeOverlay(overlay); return; }
+
+                fadeOutOverlay(overlay, function() {
                   if (onComplete) onComplete();
                 });
               });
             });
-          }
+          });
         }
+      }
 
-        requestAnimationFrame(tick);
-      });
-    });
-  }
+      requestAnimationFrame(tick);
 
-  function removeOverlay(overlay) {
-    if (overlay && overlay.parentNode) {
-      overlay.parentNode.removeChild(overlay);
-    }
+    }, FADE_IN_MS);
   }
 
   // ============================================================
-  // ФОНОВЫЙ HTTP-ПРЕДЗАГРУЗЧИК (для связанных и прочих сцен)
-  // Кеширует изображения в HTTP-кеш браузера, чтобы при
-  // переключении на другую сцену тайлы грузились мгновенно.
+  // ФОНОВЫЙ HTTP-ПРЕДЗАГРУЗЧИК
   // ============================================================
   var bgPreloader = {
     queue: [],
@@ -410,7 +414,6 @@
   }
 
   function switchScene(scene) {
-    // Инкрементируем ID чтобы отменить предыдущее сканирование
     forceLoadId++;
     stopAutorotate();
     bgPreloader.clear();
@@ -421,21 +424,17 @@
     requestAnimationFrame(function() {
       scene.view.setParameters(scene.data.initialViewParameters);
 
-      // Ждём пока начальные видимые тайлы подгрузятся
       setTimeout(function() {
 
-        // Сканируем все грани — принудительная загрузка в WebGL
         forceLoadAllTiles(scene, function() {
           startAutorotate();
 
-          // После сканирования — фоновая предзагрузка связанных сцен
           var hotspots = scene.data.linkHotspots || [];
           for (var i = 0; i < hotspots.length; i++) {
             var sd = findSceneDataById(hotspots[i].target);
             if (sd) bgPreloader.addScene(sd.id, sd.levels);
           }
 
-          // И всех остальных сцен тура
           for (var j = 0; j < data.scenes.length; j++) {
             var s = data.scenes[j];
             if (s.id !== scene.data.id) {
