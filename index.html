@@ -72,9 +72,6 @@
   <script>
     document.title = APP_DATA.name;
 
-    // ============================================================
-    // Группировка сцен
-    // ============================================================
     var SCENE_GROUPS = [
       {
         title: 'Территория',
@@ -98,20 +95,6 @@
         short: function(name) { return name.replace(/^Верхний участок\s*/i, '') || name; }
       },
       {
-        title: 'Лестница',
-        match: function(name) {
-          return /^Лестница/i.test(name);
-        },
-        short: function(name) { return name; }
-      },
-      {
-        title: '1 этаж',
-        match: function(name) {
-          return /^1 этаж/i.test(name);
-        },
-        short: function(name) { return name.replace(/^1 этаж\s*—?\s*/i, '') || name; }
-      },
-      {
         title: '2 этаж',
         match: function(name) {
           return /^2 этаж/i.test(name);
@@ -119,11 +102,25 @@
         short: function(name) { return name.replace(/^2 этаж\s*—?\s*/i, '') || name; }
       },
       {
+        title: 'Лестница',
+        match: function(name) {
+          return /^Лестница/i.test(name);
+        },
+        short: function(name) { return name; }
+      },
+      {
         title: '3 этаж',
         match: function(name) {
           return /^3 этаж/i.test(name);
         },
         short: function(name) { return name.replace(/^3 этаж\s*—?\s*/i, '') || name; }
+      },
+      {
+        title: '1 этаж',
+        match: function(name) {
+          return /^1 этаж/i.test(name);
+        },
+        short: function(name) { return name.replace(/^1 этаж\s*—?\s*/i, '') || name; }
       },
       {
         title: 'Хозблок',
@@ -134,42 +131,52 @@
       }
     ];
 
-    // Распределяем сцены по группам
+    // Распределяем сцены по группам в заданном порядке
     var grouped = {};
     var groupOrder = [];
 
-    APP_DATA.scenes.forEach(function(scene) {
-      var groupTitle = 'Прочее';
-      var shortName = scene.name;
+    // Инициализируем группы в нужном порядке
+    SCENE_GROUPS.forEach(function(g) {
+      grouped[g.title] = [];
+      groupOrder.push(g.title);
+    });
+    grouped['Прочее'] = [];
 
+    APP_DATA.scenes.forEach(function(scene) {
+      var placed = false;
       for (var g = 0; g < SCENE_GROUPS.length; g++) {
         if (SCENE_GROUPS[g].match(scene.name)) {
-          groupTitle = SCENE_GROUPS[g].title;
-          shortName = SCENE_GROUPS[g].short(scene.name);
+          grouped[SCENE_GROUPS[g].title].push({
+            id: scene.id,
+            name: scene.name,
+            shortName: SCENE_GROUPS[g].short(scene.name)
+          });
+          placed = true;
           break;
         }
       }
-
-      if (!grouped[groupTitle]) {
-        grouped[groupTitle] = [];
-        groupOrder.push(groupTitle);
+      if (!placed) {
+        grouped['Прочее'].push({ id: scene.id, name: scene.name, shortName: scene.name });
       }
-      grouped[groupTitle].push({ id: scene.id, name: scene.name, shortName: shortName });
     });
+
+    // Добавляем «Прочее» в конец если есть
+    if (grouped['Прочее'].length > 0) {
+      groupOrder.push('Прочее');
+    }
 
     // Генерируем HTML
     var ul = document.querySelector('#sceneList ul');
 
     groupOrder.forEach(function(groupTitle) {
       var scenes = grouped[groupTitle];
+      if (scenes.length === 0) return;
 
-      // Заголовок группы
       var header = document.createElement('li');
       header.classList.add('scene-group-header');
       header.innerHTML = '<span class="group-arrow">▾</span> ' + groupTitle;
       header.addEventListener('click', function() {
         header.classList.toggle('collapsed');
-        // Сворачиваем/разворачиваем все сцены этой группы
         var next = header.nextElementSibling;
         while (next && !next.classList.contains('scene-group-header')) {
           if (header.classList.contains('collapsed')) {
@@ -182,7 +189,6 @@
       });
       ul.appendChild(header);
 
-      // Сцены группы
       scenes.forEach(function(scene) {
         var a = document.createElement('a');
         var li = document.createElement('li');
