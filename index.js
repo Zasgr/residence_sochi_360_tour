@@ -44,7 +44,6 @@
     document.body.classList.add('tooltip-fallback');
   }
 
-  // preserveDrawingBuffer нужен для захвата скриншота canvas
   var viewerOpts = {
     controls: {
       mouseViewMode: data.settings.mouseViewMode
@@ -56,9 +55,7 @@
 
   var viewer = new Marzipano.Viewer(panoElement, viewerOpts);
 
-  // ============================================================
   // Плавность
-  // ============================================================
   var DRAG_FRICTION = 2;
   var ZOOM_FRICTION = 3;
 
@@ -90,13 +87,11 @@
     } catch (e) {}
   }, 200);
 
-  // ============================================================
-  // ОВЕРЛЕЙ С БЛЮРОМ
-  // ============================================================
+  // Оверлей с блюром
   var forceLoadId = 0;
-  var FADE_OUT_MS = 500;
-  var BLUR_AMOUNT = 20;       // пиксели блюра
-  var BLUR_SCALE = 1.15;      // масштаб чтобы скрыть прозрачные края
+  var FADE_OUT_MS = 700;
+  var BLUR_AMOUNT = 20;
+  var BLUR_SCALE = 1.15;
   var currentOverlay = null;
 
   function captureScreenshot() {
@@ -110,7 +105,6 @@
   }
 
   function createBlurOverlay(screenshotDataUrl) {
-    // Удаляем предыдущий
     if (currentOverlay && currentOverlay.parentNode) {
       currentOverlay.parentNode.removeChild(currentOverlay);
     }
@@ -129,7 +123,6 @@
         'transform:scale(' + BLUR_SCALE + ');' +
         'opacity:1;';
     } else {
-      // Фоллбэк — чёрный экран если скриншот не удался
       overlay.style.cssText =
         'position:absolute;top:0;left:0;width:100%;height:100%;' +
         'z-index:999;pointer-events:none;background-color:#000;opacity:1;';
@@ -153,7 +146,6 @@
 
     requestAnimationFrame(function() {
       overlay.style.opacity = '0';
-      // Одновременно убираем блюр для эффекта «фокусировки»
       overlay.style.webkitFilter = 'blur(0px)';
       overlay.style.filter = 'blur(0px)';
     });
@@ -178,9 +170,7 @@
     }
   }
 
-  // ============================================================
-  // ПРИНУДИТЕЛЬНАЯ ЗАГРУЗКА ВСЕХ ТАЙЛОВ
-  // ============================================================
+  // Принудительная загрузка тайлов
   function forceLoadAllTiles(sceneObj, overlay, onComplete) {
     var myId = ++forceLoadId;
 
@@ -241,9 +231,7 @@
     requestAnimationFrame(tick);
   }
 
-  // ============================================================
-  // ФОНОВЫЙ HTTP-ПРЕДЗАГРУЗЧИК
-  // ============================================================
+  // Фоновый предзагрузчик
   var bgPreloader = {
     queue: [],
     active: 0,
@@ -291,8 +279,7 @@
     }
   };
 
-  // ============================================================
-
+  // Создание сцен
   var scenes = data.scenes.map(function(sceneData) {
     var urlPrefix = "tiles";
 
@@ -453,13 +440,6 @@
     return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;');
   }
 
-  // ============================================================
-  // ПЕРЕКЛЮЧЕНИЕ СЦЕНЫ
-  // 1. Скриншот текущего кадра → блюр-оверлей
-  // 2. Переключение сцены за оверлеем
-  // 3. Сканирование всех граней
-  // 4. Плавное проявление с эффектом фокусировки
-  // ============================================================
   var isFirstScene = true;
 
   function switchScene(scene) {
@@ -467,24 +447,20 @@
     stopAutorotate();
     bgPreloader.clear();
 
-    // 1. Захватываем скриншот ДО переключения (кроме первого запуска)
     var screenshot = null;
     if (!isFirstScene) {
       screenshot = captureScreenshot();
     }
     isFirstScene = false;
 
-    // 2. Мгновенно показываем блюр предыдущего кадра
     var overlay = createBlurOverlay(screenshot);
 
-    // 3. Переключаем сцену за оверлеем
     scene.view.setParameters(scene.data.initialViewParameters);
     scene.scene.switchTo();
 
     requestAnimationFrame(function() {
       scene.view.setParameters(scene.data.initialViewParameters);
 
-      // 4. Ждём начальные тайлы, затем сканируем
       setTimeout(function() {
 
         forceLoadAllTiles(scene, overlay, function() {

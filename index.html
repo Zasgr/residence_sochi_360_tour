@@ -72,22 +72,131 @@
   <script>
     document.title = APP_DATA.name;
 
-    var el = document.querySelector('#sceneList ul');
+    // ============================================================
+    // Группировка сцен
+    // ============================================================
+    var SCENE_GROUPS = [
+      {
+        title: '🌍 Территория',
+        match: function(name) {
+          return /^(Главный вид|Дрон|Въездные ворота)/i.test(name);
+        },
+        short: function(name) { return name; }
+      },
+      {
+        title: '🏡 Нижний участок',
+        match: function(name) {
+          return /^Нижний участок/i.test(name);
+        },
+        short: function(name) { return name.replace(/^Нижний участок\s*/i, '') || name; }
+      },
+      {
+        title: '🏡 Верхний участок',
+        match: function(name) {
+          return /^Верхний участок/i.test(name);
+        },
+        short: function(name) { return name.replace(/^Верхний участок\s*/i, '') || name; }
+      },
+      {
+        title: '🪜 Лестница',
+        match: function(name) {
+          return /^Лестница/i.test(name);
+        },
+        short: function(name) { return name; }
+      },
+      {
+        title: '1️⃣ 1 этаж',
+        match: function(name) {
+          return /^1 этаж/i.test(name);
+        },
+        short: function(name) { return name.replace(/^1 этаж\s*—?\s*/i, '') || name; }
+      },
+      {
+        title: '2️⃣ 2 этаж',
+        match: function(name) {
+          return /^2 этаж/i.test(name);
+        },
+        short: function(name) { return name.replace(/^2 этаж\s*—?\s*/i, '') || name; }
+      },
+      {
+        title: '3️⃣ 3 этаж',
+        match: function(name) {
+          return /^3 этаж/i.test(name);
+        },
+        short: function(name) { return name.replace(/^3 этаж\s*—?\s*/i, '') || name; }
+      },
+      {
+        title: '🏋️ Хозблок',
+        match: function(name) {
+          return /^Хозблок/i.test(name);
+        },
+        short: function(name) { return name.replace(/^Хозблок\s*—?\s*/i, '') || name; }
+      }
+    ];
 
-    APP_DATA.scenes.forEach(i => {
-      var a = document.createElement('a');
-      var li = document.createElement('li');
+    // Распределяем сцены по группам
+    var grouped = {};
+    var groupOrder = [];
 
-      a.classList.add('scene');
-      a.setAttribute('data-id', i.id);
-      a.setAttribute('href', 'javascript:void(0)');
+    APP_DATA.scenes.forEach(function(scene) {
+      var groupTitle = '📍 Прочее';
+      var shortName = scene.name;
 
-      li.classList.add('text');
-      li.innerHTML = i.name;
+      for (var g = 0; g < SCENE_GROUPS.length; g++) {
+        if (SCENE_GROUPS[g].match(scene.name)) {
+          groupTitle = SCENE_GROUPS[g].title;
+          shortName = SCENE_GROUPS[g].short(scene.name);
+          break;
+        }
+      }
 
-      a.appendChild(li);
-      el.appendChild(a);
+      if (!grouped[groupTitle]) {
+        grouped[groupTitle] = [];
+        groupOrder.push(groupTitle);
+      }
+      grouped[groupTitle].push({ id: scene.id, name: scene.name, shortName: shortName });
+    });
 
+    // Генерируем HTML
+    var ul = document.querySelector('#sceneList ul');
+
+    groupOrder.forEach(function(groupTitle) {
+      var scenes = grouped[groupTitle];
+
+      // Заголовок группы
+      var header = document.createElement('li');
+      header.classList.add('scene-group-header');
+      header.innerHTML = '<span class="group-arrow">▾</span> ' + groupTitle;
+      header.addEventListener('click', function() {
+        header.classList.toggle('collapsed');
+        // Сворачиваем/разворачиваем все сцены этой группы
+        var next = header.nextElementSibling;
+        while (next && !next.classList.contains('scene-group-header')) {
+          if (header.classList.contains('collapsed')) {
+            next.style.display = 'none';
+          } else {
+            next.style.display = '';
+          }
+          next = next.nextElementSibling;
+        }
+      });
+      ul.appendChild(header);
+
+      // Сцены группы
+      scenes.forEach(function(scene) {
+        var a = document.createElement('a');
+        var li = document.createElement('li');
+
+        a.classList.add('scene');
+        a.setAttribute('data-id', scene.id);
+        a.setAttribute('href', 'javascript:void(0)');
+
+        li.classList.add('text');
+        li.innerHTML = scene.shortName;
+
+        a.appendChild(li);
+        ul.appendChild(a);
+      });
     });
   </script>
 
